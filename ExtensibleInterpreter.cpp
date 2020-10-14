@@ -5,18 +5,17 @@
 using namespace llvm;
 
 ExtensibleInterpreter::ExtensibleInterpreter(Module *M) :
-      ExecutionEngine(M),
+      ExecutionEngine(std::unique_ptr<Module>{M}),
       module(M)
 {
-  interp = new Interpreter(M);
+  interp = new Interpreter(std::unique_ptr<Module>{M});
   pubInterp = (PublicInterpreter *)interp;  // GIANT HACK
-
-  // Data layout is used by ExecutionEngine::runFunctionAsMain().
-  setDataLayout(interp->getDataLayout());
-
+  module = M;
+  M->setDataLayout(interp->getDataLayout());
   // This is hacky: remove M from the ExecutionEngine's module list to avoid a
   // double-delete when both it and the Interpreter are destructed.
-  Modules.clear();
+  //Modules.clear();
+
 }
 
 ExtensibleInterpreter::~ExtensibleInterpreter() {
@@ -30,6 +29,7 @@ void ExtensibleInterpreter::run() {
   while (!pubInterp->ECStack.empty()) {
     ExecutionContext &SF = pubInterp->ECStack.back();
     Instruction &I = *SF.CurInst++;
+
     execute(I);
   }
 }
@@ -45,6 +45,7 @@ int ExtensibleInterpreter::runMain(std::vector<std::string> args,
                                    char * const *envp) {
   // Get the main function from the module.
   Function *EntryFn = module->getFunction("main");
+
   if (!EntryFn) {
     errs() << '\'' << "main" << "\' function not found in module.\n";
     return -1;
@@ -68,7 +69,7 @@ int ExtensibleInterpreter::runMain(std::vector<std::string> args,
 
 GenericValue ExtensibleInterpreter::runFunction(
     Function *F,
-    const std::vector<GenericValue> &ArgValues
+    llvm::ArrayRef<llvm::GenericValue> ArgValues
 ) {
   // Copied & pasted from Interpreter, essentially.
   std::vector<GenericValue> ActualArgs;
@@ -80,7 +81,7 @@ GenericValue ExtensibleInterpreter::runFunction(
   return pubInterp->ExitValue;
 }
 void *ExtensibleInterpreter::getPointerToNamedFunction(
-    const std::string &Name,
+    llvm::StringRef,
     bool AbortOnFailure
 ) {
   return 0;

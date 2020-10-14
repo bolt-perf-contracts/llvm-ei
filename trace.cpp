@@ -31,5 +31,7 @@ int main(int argc, char **argv, char * const *envp) {
 
   cl::ParseCommandLineOptions(argc, argv,
                               "EnerC execution tracer\n");
+
+  cl::opt<std::string> startFunction("start_func", cl::desc("Specify start function"), cl::value_desc("start_func"));
   return interpret<Tracer>(bitcodeFile, commandArgs, envp);
 }

@@ -2,9 +2,10 @@
 #define EXTENSIBLE_INTERPRETER_H
 
 #include <vector>
-#include "llvm/InstVisitor.h"
+#include "llvm/IR/InstVisitor.h"
 #include "llvm/IRReader/IRReader.h"
 #include "llvm/Support/SourceMgr.h"
+#include "llvm/IR/Module.h"
 #include "ExecutionEngine/Interpreter/Interpreter.h"
 
 // This is a GIANT HACK that should NOT BE TRUSTED. I need access to the
@@ -18,7 +19,6 @@ class PublicInterpreter : public llvm::ExecutionEngine,
                           public llvm::InstVisitor<llvm::Interpreter> {
 public:
   llvm::GenericValue ExitValue;
-  llvm::DataLayout TD;
   llvm::IntrinsicLowering *IL;
   std::vector<llvm::ExecutionContext> ECStack;
   std::vector<llvm::Function*> AtExitHandlers;
@@ -50,9 +50,9 @@ public:
   // Satisfy the ExecutionEngine interface.
   llvm::GenericValue runFunction(
       llvm::Function *F,
-      const std::vector<llvm::GenericValue> &ArgValues
+      llvm::ArrayRef<llvm::GenericValue> ArgValues
   );
-  void *getPointerToNamedFunction(const std::string &Name,
+  void *getPointerToNamedFunction(llvm::StringRef,
                                   bool AbortOnFailure = true);
   void *recompileAndRelinkFunction(llvm::Function *F);
   void freeMachineCodeForFunction(llvm::Function *F);
@@ -68,7 +68,11 @@ int interpret(std::string bitcodeFile, std::vector<std::string> args,
 
   // Load the bitcode.
   llvm::SMDiagnostic Err;
-  llvm::Module *Mod = llvm::ParseIRFile(bitcodeFile, Err, Context);
+  auto M = llvm::parseIRFile(bitcodeFile, Err, Context);
+
+  llvm::Module *Mod = M.release();
+
+
   if (!Mod) {
     llvm::errs() << "bitcode parsing failed\n";
     return -1;
@@ -76,7 +80,7 @@ int interpret(std::string bitcodeFile, std::vector<std::string> args,
 
   // Load the whole bitcode file eagerly to check for errors.
   std::string ErrorMsg;
-  if (Mod->MaterializeAllPermanently(&ErrorMsg)) {
+  if (std::error_code EC  = Mod->materializeAll()) {
     llvm::errs() << "bitcode read error: " << ErrorMsg << "\n";
     return -1;
   }
@@ -89,7 +93,8 @@ int interpret(std::string bitcodeFile, std::vector<std::string> args,
   // Create and run the interpreter.
   ExtensibleInterpreter *interp = new InterpreterType(Mod);
   int retcode = interp->runMain(args, envp);
-  delete interp;
+  //delete interp;
+  exit(0);
   return retcode;
 }
 
