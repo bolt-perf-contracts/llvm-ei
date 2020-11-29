@@ -64,7 +64,7 @@ public:
 template <typename InterpreterType>
 int interpret(std::string bitcodeFile, std::vector<std::string> args,
               char * const *envp) {
-  llvm::LLVMContext &Context = llvm::getGlobalContext();
+  llvm::LLVMContext Context;
 
   // Load the bitcode.
   llvm::SMDiagnostic Err;
@@ -80,7 +80,7 @@ int interpret(std::string bitcodeFile, std::vector<std::string> args,
 
   // Load the whole bitcode file eagerly to check for errors.
   std::string ErrorMsg;
-  if (std::error_code EC  = Mod->materializeAll()) {
+  if (llvm::Error EC  = Mod->materializeAll()) {
     llvm::errs() << "bitcode read error: " << ErrorMsg << "\n";
     return -1;
   }

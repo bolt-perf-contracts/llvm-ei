@@ -5,6 +5,7 @@
 #include "llvm/Support/PrettyStackTrace.h"
 #include "llvm/Support/Signals.h"
 #include "ExtensibleInterpreter.h"
+#include "iostream"
 
 using namespace llvm;
 
@@ -20,13 +21,15 @@ class Tracer : public ExtensibleInterpreter {
 public:
   Tracer(Module *M) : ExtensibleInterpreter(M) {};
   virtual void execute(llvm::Instruction &I) {
-    I.dump();
+	llvm::Function* f = I.getParent()->getParent();
+	std::cout << f->getName().data() << "|\n";
+	I.dump();
     ExtensibleInterpreter::execute(I);
   }
 };
 
 int main(int argc, char **argv, char * const *envp) {
-  sys::PrintStackTraceOnErrorSignal();
+  sys::PrintStackTraceOnErrorSignal(argv[0]);
   PrettyStackTraceProgram X(argc, argv);
 
   cl::ParseCommandLineOptions(argc, argv,
